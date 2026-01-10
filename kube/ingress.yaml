@@ -1,0 +1,14 @@
+apiVersion: extensions/v1
+kind: Ingress
+metadata:
+  name: minikube-ingress
+  annotations:
+spec:
+  rules:
+  - host: kubefastapiapp.test
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: kubefastapiapp-service
+          servicePort: 80

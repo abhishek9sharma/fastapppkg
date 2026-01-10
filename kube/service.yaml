@@ -1,0 +1,13 @@
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubefastapiapp
+  labels:
+    service: kubefastapiapp
+spec:
+  selector:
+    app: kubefastapiapp
+  ports:
+  - port: 80
+  type: LoadBalancer

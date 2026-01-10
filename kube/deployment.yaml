@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubefastapiapp
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: kubefastapiapp
+  template:
+    metadata:
+      labels:
+        app: kubefastapiapp
+    spec:
+      containers:
+      - name: kubefastapiapp
+        image: kubefastapiapp:latest
+        ports:
+        - containerPort: 80
+        imagePullPolicy: Never
