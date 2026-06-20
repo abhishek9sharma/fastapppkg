@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "fastapppkg.fastapi.fullname" . }}
+  labels:
+    {{- include "fastapppkg.labels" . | nindent 4 }}
+    app: {{ include "fastapppkg.fastapi.fullname" . }}
+spec:
+  type: {{ .Values.fastapi.service.type }}
+  selector:
+    app: {{ include "fastapppkg.fastapi.fullname" . }}
+  ports:
+    - port: {{ .Values.fastapi.service.port }}
+      targetPort: {{ .Values.fastapi.service.port }}

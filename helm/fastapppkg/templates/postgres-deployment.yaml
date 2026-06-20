@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "fastapppkg.postgres.fullname" . }}
+  labels:
+    {{- include "fastapppkg.labels" . | nindent 4 }}
+    app: {{ include "fastapppkg.postgres.fullname" . }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "fastapppkg.postgres.fullname" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "fastapppkg.postgres.fullname" . }}
+    spec:
+      containers:
+        - name: postgres
+          image: "{{ .Values.postgres.image.repository }}:{{ .Values.postgres.image.tag }}"
+          imagePullPolicy: {{ .Values.postgres.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.postgres.service.port }}
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fastapppkg.postgres.fullname" . }}-credentials
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fastapppkg.postgres.fullname" . }}-credentials
+                  key: password
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fastapppkg.postgres.fullname" . }}-credentials
+                  key: database
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - {{ .Values.postgres.auth.username }}
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          {{- if .Values.postgres.persistence.enabled }}
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+              subPath: pgdata
+          {{- end }}
+      {{- if .Values.postgres.persistence.enabled }}
+      volumes:
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: {{ include "fastapppkg.postgres.fullname" . }}-data
+      {{- end }}

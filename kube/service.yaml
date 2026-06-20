@@ -10,4 +10,4 @@ spec:
     app: kubefastapiapp
   ports:
   - port: 80
-  type: LoadBalancer
+  type: ClusterIP

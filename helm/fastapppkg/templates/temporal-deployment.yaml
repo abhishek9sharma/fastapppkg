@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "fastapppkg.temporal.fullname" . }}
+  labels:
+    {{- include "fastapppkg.labels" . | nindent 4 }}
+    app: {{ include "fastapppkg.temporal.fullname" . }}
+spec:
+  replicas: {{ .Values.temporal.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "fastapppkg.temporal.fullname" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "fastapppkg.temporal.fullname" . }}
+    spec:
+      initContainers:
+        - name: wait-for-postgres
+          image: "{{ .Values.postgres.image.repository }}:{{ .Values.postgres.image.tag }}"
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h {{ include "fastapppkg.postgres.fullname" . }} -p {{ .Values.postgres.service.port }} -U {{ .Values.postgres.auth.username }}; do
+                echo "Waiting for PostgreSQL..."; sleep 2;
+              done
+      containers:
+        - name: temporal
+          image: "{{ .Values.temporal.image.repository }}:{{ .Values.temporal.image.tag }}"
+          imagePullPolicy: {{ .Values.temporal.image.pullPolicy }}
+          ports:
+            - name: grpc
+              containerPort: {{ .Values.temporal.service.grpcPort }}
+            - name: ui
+              containerPort: {{ .Values.temporal.service.uiPort }}
+          env:
+            - name: DB
+              value: "postgres12"
+            - name: POSTGRES_SEEDS
+              value: {{ include "fastapppkg.postgres.fullname" . }}
+            - name: DB_PORT
+              value: {{ .Values.postgres.service.port | quote }}
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fastapppkg.postgres.fullname" . }}-credentials
+                  key: username
+            - name: POSTGRES_PWD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fastapppkg.postgres.fullname" . }}-credentials
+                  key: password
+            {{- range .Values.temporal.env }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}

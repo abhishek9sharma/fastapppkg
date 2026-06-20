@@ -1,0 +1,114 @@
+# docker-compose.external-pg.yaml
+#
+# Use when you already have a Postgres instance running (local or remote).
+# Does NOT start a postgres container.
+#
+# Required env vars (copy .env.external-pg.example → .env and fill in):
+#   POSTGRES_HOST      hostname visible from inside Docker (default: host.docker.internal)
+#   POSTGRES_PORT      default: 5432
+#   POSTGRES_USER      default: temporal
+#   POSTGRES_PASSWORD  default: temporal
+#
+# Run:
+#   docker compose -f docker-compose.external-pg.yaml --env-file .env up
+
+services:
+
+  # ── 1. Schema migration ────────────────────────────────────────────────────
+  # Runs temporal-sql-tool to create and migrate BOTH Temporal databases:
+  #   • temporal            – core workflow tables
+  #   • temporal_visibility – search attribute / visibility tables
+  #
+  # Exits with code 0 on success. The temporal service waits for this via
+  # service_completed_successfully before starting.
+  temporal-migrate:
+    image: temporalio/admin-tools:latest
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        set -e
+
+        PGHOST=${POSTGRES_HOST:-host.docker.internal}
+        PGPORT=${POSTGRES_PORT:-5432}
+
+        # bash /dev/tcp probe — no pg_isready in this image
+        echo "Waiting for postgres at $PGHOST:$PGPORT ..."
+        until bash -c ">/dev/tcp/$PGHOST/$PGPORT" 2>/dev/null; do
+          echo "  not ready yet, retrying in 2s"; sleep 2
+        done
+        echo "Postgres is reachable."
+
+        # Use env vars — avoids quoting issues with --password flag
+        export SQL_HOST=$PGHOST
+        export SQL_PORT=$PGPORT
+        export SQL_USER=${POSTGRES_USER:-temporal}
+        export SQL_PASSWORD=${POSTGRES_PASSWORD:-temporal}
+
+        TOOL="temporal-sql-tool --plugin postgres12"
+
+        # ── Schema 1/2: temporal ──────────────────────────────────────────
+        echo ""
+        echo "=== Schema 1/2: temporal ==="
+        $TOOL --db temporal create-database 2>/dev/null \
+          && echo "Created database 'temporal'." \
+          || echo "Database 'temporal' already exists — skipping create."
+
+        # setup-schema creates the schema_version table (idempotent if run again)
+        $TOOL --db temporal setup-schema -v 0.0
+
+        # update-schema applies all versioned migrations up to latest
+        $TOOL --db temporal update-schema \
+          -d /etc/temporal/schema/postgresql/v12/temporal/versioned
+
+        # ── Schema 2/2: temporal_visibility ───────────────────────────────
+        echo ""
+        echo "=== Schema 2/2: temporal_visibility ==="
+        $TOOL --db temporal_visibility create-database 2>/dev/null \
+          && echo "Created database 'temporal_visibility'." \
+          || echo "Database 'temporal_visibility' already exists — skipping create."
+
+        $TOOL --db temporal_visibility setup-schema -v 0.0
+
+        $TOOL --db temporal_visibility update-schema \
+          -d /etc/temporal/schema/postgresql/v12/visibility/versioned
+
+        echo ""
+        echo "All Temporal schema migrations complete."
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST:-host.docker.internal}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_USER: ${POSTGRES_USER:-temporal}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-temporal}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # Linux: routes host.docker.internal → host loopback
+
+  # ── 2. Temporal server ─────────────────────────────────────────────────────
+  # Starts only after temporal-migrate exits 0. auto-setup will detect that
+  # both schemas already exist and skip re-running setup, then start all services.
+  temporal:
+    image: temporalio/auto-setup:1.25.0
+    depends_on:
+      temporal-migrate:
+        condition: service_completed_successfully   # waits for exit code 0, not just "started"
+    environment:
+      DB: postgres12
+      POSTGRES_SEEDS: ${POSTGRES_HOST:-host.docker.internal}
+      DB_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_USER: ${POSTGRES_USER:-temporal}
+      POSTGRES_PWD: ${POSTGRES_PASSWORD:-temporal}
+    ports:
+      - "7233:7233"
+      - "8233:8233"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # ── 3. FastAPI + embedded Temporal worker ──────────────────────────────────
+  fastapi:
+    build: .
+    depends_on:
+      - temporal
+    environment:
+      TEMPORAL_HOST: temporal:7233
+    ports:
+      - "8000:80"
+    restart: on-failure

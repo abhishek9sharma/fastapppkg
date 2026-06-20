@@ -1,0 +1,38 @@
+fastapi:
+  image:
+    repository: kubefastapiapp
+    tag: latest
+    pullPolicy: Never
+  replicaCount: 1
+  service:
+    type: ClusterIP
+    port: 80
+  ingress:
+    enabled: true
+    host: kubefastapiapp.test
+
+temporal:
+  image:
+    repository: temporalio/auto-setup
+    tag: "1.25.0"
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  service:
+    grpcPort: 7233
+    uiPort: 8233
+  env: []
+
+postgres:
+  image:
+    repository: postgres
+    tag: "15"
+    pullPolicy: IfNotPresent
+  auth:
+    username: temporal
+    password: temporal
+    database: temporal
+  service:
+    port: 5432
+  persistence:
+    enabled: true
+    size: 1Gi

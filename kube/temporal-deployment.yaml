@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: temporal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: temporal
+  template:
+    metadata:
+      labels:
+        app: temporal
+    spec:
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:15
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h postgres -p 5432 -U temporal; do
+                echo "Waiting for PostgreSQL..."; sleep 2;
+              done
+      containers:
+        - name: temporal
+          image: temporalio/auto-setup:1.25.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: grpc
+              containerPort: 7233
+            - name: ui
+              containerPort: 8233
+          env:
+            - name: DB
+              value: postgres12
+            - name: POSTGRES_SEEDS
+              value: postgres
+            - name: DB_PORT
+              value: "5432"
+            - name: POSTGRES_USER
+              value: temporal
+            - name: POSTGRES_PWD
+              value: temporal

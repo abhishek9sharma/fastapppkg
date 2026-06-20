@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "fastapppkg.postgres.fullname" . }}
+  labels:
+    {{- include "fastapppkg.labels" . | nindent 4 }}
+    app: {{ include "fastapppkg.postgres.fullname" . }}
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ include "fastapppkg.postgres.fullname" . }}
+  ports:
+    - port: {{ .Values.postgres.service.port }}
+      targetPort: {{ .Values.postgres.service.port }}

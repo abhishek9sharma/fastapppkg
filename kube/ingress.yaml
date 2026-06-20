@@ -1,4 +1,4 @@
-apiVersion: extensions/v1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: minikube-ingress
@@ -9,6 +9,9 @@ spec:
     http:
       paths:
       - path: /
+        pathType: Prefix
         backend:
-          serviceName: kubefastapiapp-service
-          servicePort: 80
+          service:
+            name: kubefastapiapp
+            port:
+              number: 80

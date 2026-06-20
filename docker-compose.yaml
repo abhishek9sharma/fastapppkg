@@ -1,0 +1,54 @@
+services:
+
+  # ── 1. Postgres ────────────────────────────────────────────────────────────
+  # Provides persistent storage for both Temporal schemas.
+  # Temporal auto-setup will create two databases on first start:
+  #   • temporal           – workflow execution state
+  #   • temporal_visibility – search / listing of workflows
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: temporal
+      POSTGRES_DB: temporal        # default DB; auto-setup creates temporal_visibility separately
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s            # give postgres time to initialise before probing
+
+  # ── 2. Temporal ────────────────────────────────────────────────────────────
+  # auto-setup image: waits for postgres, creates both DB schemas, then starts
+  # frontend / history / matching / worker services in a single process.
+  temporal:
+    image: temporalio/auto-setup:1.25.0
+    depends_on:
+      postgres:
+        condition: service_healthy  # only start after pg_isready passes
+    environment:
+      DB: postgres12                # driver — "postgres12" covers Postgres 12+
+      POSTGRES_SEEDS: postgres      # resolves to the "postgres" service above via docker DNS
+      DB_PORT: 5432
+      POSTGRES_USER: temporal
+      POSTGRES_PWD: temporal
+    ports:
+      - "7233:7233"                 # gRPC frontend — SDK clients / tctl
+      - "8233:8233"                 # Web UI
+
+  # ── 3. FastAPI + embedded Temporal worker ──────────────────────────────────
+  # Runs the HTTP API and the Temporal worker in the same process via lifespan.
+  fastapi:
+    build: .
+    depends_on:
+      - temporal
+    environment:
+      TEMPORAL_HOST: temporal:7233  # docker DNS name for the temporal service
+    ports:
+      - "8000:80"
+    restart: on-failure             # retry if it starts before Temporal is fully ready
+
+volumes:
+  postgres-data:                    # named volume — survives container restarts
