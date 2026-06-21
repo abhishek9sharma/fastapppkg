@@ -219,6 +219,51 @@ Wrapped in `{{- if .Values.fastapi.ingress.enabled }}` — set `enabled: false` 
 
 ---
 
+## Name/label relationships across FastAPI files
+
+The same string `kubefastapiapp` appears in multiple places with different roles. This table shows how each occurrence connects the three files together and maps to Helm values.
+
+| Value | File | Field | Role |
+|---|---|---|---|
+| `kubefastapiapp` | `deployment.yaml` | `metadata.name` | Name of the Deployment object itself. Used in `kubectl get/describe/delete deployment kubefastapiapp`. |
+| `kubefastapiapp` | `deployment.yaml` | `spec.selector.matchLabels.app` | The Deployment's ownership query — "I manage pods with this label." Must match the pod template labels below. |
+| `kubefastapiapp` | `deployment.yaml` | `spec.template.metadata.labels.app` | Stamped onto every pod the Deployment creates. This is the value the Service selector and Deployment selector both match against. |
+| `kubefastapiapp` | `service.yaml` | `metadata.name` | Name of the Service object. Used as the DNS hostname inside the cluster (`kubefastapiapp.svc.cluster.local`) and referenced by the Ingress backend. |
+| `kubefastapiapp` | `service.yaml` | `spec.selector.app` | The Service's pod query — "send traffic to pods with this label." Matches `spec.template.metadata.labels.app` in `deployment.yaml`. |
+| `kubefastapiapp` | `ingress.yaml` | `spec.rules[].backend.service.name` | Tells the Ingress which Service to forward traffic to. Must match `metadata.name` in `service.yaml`. |
+| `kubefastapiapp.test` | `ingress.yaml` | `spec.rules[].host` | The HTTP `Host` header the Ingress controller matches. Add `$(minikube ip) kubefastapiapp.test` to `/etc/hosts`. |
+| `80` | `service.yaml` | `spec.ports[].port` | Port the Service exposes inside the cluster. |
+| `80` | `ingress.yaml` | `spec.rules[].backend.service.port.number` | Must match the port above — Ingress forwards to this port on the Service. |
+
+### How they chain together
+
+```
+Ingress (host: kubefastapiapp.test)
+    │  backend.service.name = "kubefastapiapp"
+    ▼
+Service (metadata.name = "kubefastapiapp")
+    │  spec.selector.app = "kubefastapiapp"
+    ▼
+Pod (labels.app = "kubefastapiapp")          ← created by ─►  Deployment
+                                                               spec.selector.matchLabels.app = "kubefastapiapp"
+```
+
+### Helm values equivalents
+
+| Raw manifest value | Helm values.yaml key | Template expression |
+|---|---|---|
+| `kubefastapiapp` (image name) | `fastapi.image.repository` | `{{ .Values.fastapi.image.repository }}` |
+| `kubefastapiapp` (resource names) | derived from release name | `{{ include "fastapppkg.fastapi.fullname" . }}` |
+| `kubefastapiapp.test` (host) | `fastapi.ingress.host` | `{{ .Values.fastapi.ingress.host }}` |
+| `80` (service port) | `fastapi.service.port` | `{{ .Values.fastapi.service.port }}` |
+| `ClusterIP` (service type) | `fastapi.service.type` | `{{ .Values.fastapi.service.type }}` |
+| `2` (replicas) | `fastapi.replicaCount` | `{{ .Values.fastapi.replicaCount }}` |
+| `Never` (pull policy) | `fastapi.image.pullPolicy` | `{{ .Values.fastapi.image.pullPolicy }}` |
+
+In Helm, resource names like `kubefastapiapp` are replaced by `{{ include "fastapppkg.fastapi.fullname" . }}` which combines the release name + chart name (e.g. `myapp-fastapi`). This means you can deploy multiple releases into the same cluster without name collisions.
+
+---
+
 ## `postgres-pvc.yaml` — Persistent volume claim
 
 ```yaml

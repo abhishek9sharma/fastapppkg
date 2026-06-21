@@ -10,9 +10,16 @@ from fastapppkg.schemas.mathops import MathOpsReq, MathOpsResp
 from fastapppkg.temporal.worker import run_worker
 
 
+def _log_worker_error(task):
+    if not task.cancelled() and not task.exception() is None:
+        import logging
+        logging.getLogger(__name__).error("Worker task failed", exc_info=task.exception())
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     worker_task = asyncio.create_task(run_worker())
+    worker_task.add_done_callback(_log_worker_error)
     yield
     worker_task.cancel()
     try:

@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
 set -e
 
-# Point docker CLI at minikube's daemon so the built image is available in-cluster
-eval $(minikube docker-env)
-
 # Rebuild the FastAPI image
 docker stop $(docker ps | grep kubefastapiapp | awk '{print $1}') 2>/dev/null || true
 docker container rm $(docker container ls -a | grep kubefastapiapp | awk '{print $1}') 2>/dev/null || true
@@ -34,8 +31,8 @@ kubectl apply -f kube/ingress.yaml
 echo ""
 echo "All services deployed."
 echo "Add these to /etc/hosts if not already present:"
-echo "  $(minikube ip)  kubefastapiapp.test"
-echo "  $(minikube ip)  temporal.test"
+echo "  127.0.0.1  kubefastapiapp.test"
+echo "  127.0.0.1  temporal.test"
 echo ""
 echo "Trigger a workflow:  curl -X POST http://kubefastapiapp.test/workflow/run"
 echo "Temporal UI:         http://temporal.test"

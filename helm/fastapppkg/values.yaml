@@ -2,7 +2,7 @@ fastapi:
   image:
     repository: kubefastapiapp
     tag: latest
-    pullPolicy: Never
+    pullPolicy: IfNotPresent
   replicaCount: 1
   service:
     type: ClusterIP

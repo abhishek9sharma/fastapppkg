@@ -29,9 +29,9 @@ spec:
           ports:
             - name: grpc
               containerPort: 7233
-            - name: ui
-              containerPort: 8233
           env:
+            - name: BIND_ON_IP
+              value: "0.0.0.0"
             - name: DB
               value: postgres12
             - name: POSTGRES_SEEDS

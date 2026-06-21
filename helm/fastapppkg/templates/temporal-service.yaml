@@ -15,4 +15,4 @@ spec:
       targetPort: {{ .Values.temporal.service.grpcPort }}
     - name: ui
       port: {{ .Values.temporal.service.uiPort }}
-      targetPort: {{ .Values.temporal.service.uiPort }}
+      targetPort: 8080

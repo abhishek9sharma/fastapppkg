@@ -19,7 +19,7 @@ setup(
         "Topic :: Software Development :: Build Tools",
         "License :: OSI Approved :: MIT License",
     ],
-    keywords="astapi starter template",
+    keywords="fastapi starter template",
     packages=find_namespace_packages(where="src"),
     package_dir={"": "src"},
     python_requires=">=3.7",

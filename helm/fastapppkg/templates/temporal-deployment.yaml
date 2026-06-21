@@ -32,9 +32,9 @@ spec:
           ports:
             - name: grpc
               containerPort: {{ .Values.temporal.service.grpcPort }}
-            - name: ui
-              containerPort: {{ .Values.temporal.service.uiPort }}
           env:
+            - name: BIND_ON_IP
+              value: "0.0.0.0"
             - name: DB
               value: "postgres12"
             - name: POSTGRES_SEEDS

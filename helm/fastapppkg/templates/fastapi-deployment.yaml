@@ -1,19 +1,18 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "fastapppkg.fastapi.fullname" . }}
+  name: {{ .Release.Name }}-fastapi
   labels:
-    {{- include "fastapppkg.labels" . | nindent 4 }}
-    app: {{ include "fastapppkg.fastapi.fullname" . }}
+    app: {{ .Release.Name }}-fastapi
 spec:
   replicas: {{ .Values.fastapi.replicaCount }}
   selector:
     matchLabels:
-      app: {{ include "fastapppkg.fastapi.fullname" . }}
+      app: {{ .Release.Name }}-fastapi
   template:
     metadata:
       labels:
-        app: {{ include "fastapppkg.fastapi.fullname" . }}
+        app: {{ .Release.Name }}-fastapi
     spec:
       containers:
         - name: fastapi
@@ -23,7 +22,7 @@ spec:
             - containerPort: {{ .Values.fastapi.service.port }}
           env:
             - name: TEMPORAL_HOST
-              value: "{{ include "fastapppkg.temporal.fullname" . }}:7233"
+              value: "{{ .Release.Name }}-temporal:7233"
             {{- if .Values.fastapi.env }}
             {{- range .Values.fastapi.env }}
             {{- if ne .name "TEMPORAL_HOST" }}

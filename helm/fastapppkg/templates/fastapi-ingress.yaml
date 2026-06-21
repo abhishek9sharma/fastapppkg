@@ -2,9 +2,9 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "fastapppkg.fastapi.fullname" . }}
+  name: {{ .Release.Name }}-fastapi
   labels:
-    {{- include "fastapppkg.labels" . | nindent 4 }}
+    app: {{ .Release.Name }}-fastapi
 spec:
   rules:
     - host: {{ .Values.fastapi.ingress.host }}
@@ -14,7 +14,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ include "fastapppkg.fastapi.fullname" . }}
+                name: {{ .Release.Name }}-fastapi
                 port:
                   number: {{ .Values.fastapi.service.port }}
 {{- end }}
